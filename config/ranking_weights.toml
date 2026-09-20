@@ -1,0 +1,89 @@
+# Ranking weights — of everyone we may contact, who matters most.
+#
+# Eligibility answers "may we contact this person?" per requirement. Ranking
+# answers "who first?" across the whole set. This is rule-based scoring on
+# purpose: no LLM, so it is fast over 5,000 cases, reproducible, and every
+# number a judge sees can be traced back to a line in this file.
+#
+# Components are additive and deliberately non-overlapping. Urgency already
+# encodes how serious the treatment or recall type is (clinical_urgency and
+# base_urgency are fixed functions of type in this dataset), so there is no
+# separate per-type bonus on top of it — that would count the same fact twice.
+#
+# Fictional data only. Prototype values, not approved clinic policy.
+
+schema_version = "1.0"
+
+
+# How serious the work is, as recorded by the clinic. 1-5 for both recall
+# (base_urgency) and treatment (clinical_urgency) requirements.
+[urgency]
+points_per_level = 8.0
+
+
+# A treatment that was started and never finished is the differentiator for a
+# dental recall agent: routine hygiene can wait, an abandoned root canal cannot.
+# This is a state the urgency score does not capture.
+[treatment_state]
+abandoned = 25.0
+in_progress = 6.0
+
+# ...and the longer it has been stalled, the worse it is.
+[treatment_staleness]
+points_per_year = 4.0
+max_points = 20.0
+
+
+# How long past the approved due date. Banded rather than linear: the gap
+# between 30 and 90 days overdue matters far more than between 900 and 960.
+[[overdue_band]]
+up_to_days = 30
+points = 0.0
+label = "just come due"
+
+[[overdue_band]]
+up_to_days = 90
+points = 6.0
+label = "over a month overdue"
+
+[[overdue_band]]
+up_to_days = 180
+points = 12.0
+label = "over three months overdue"
+
+[[overdue_band]]
+up_to_days = 365
+points = 20.0
+label = "over six months overdue"
+
+[[overdue_band]]
+up_to_days = 730
+points = 28.0
+label = "over a year overdue"
+
+# Final band is unbounded.
+[[overdue_band]]
+points = 34.0
+label = "more than two years overdue"
+
+
+[history]
+# Someone who keeps missing appointments is slipping out of care, so they are
+# worth a personal nudge before they disappear entirely.
+no_show_points_each = 3.0
+no_show_max_points = 9.0
+
+# Someone who has ignored repeated messages is less likely to respond, and
+# hammering them is not respectful of their silence. Diminishing priority, not
+# a hard block — the attempt limit in the eligibility engine does that.
+unanswered_points_each = -4.0
+unanswered_min_points = -12.0
+
+# No completed appointment on record at all: the clinic has never actually seen
+# this person follow through.
+never_attended_points = 10.0
+
+
+[tie_break]
+# Deterministic ordering so the demo runs identically twice.
+order = ["score", "days_overdue", "case_id"]
