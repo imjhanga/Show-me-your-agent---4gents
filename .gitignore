@@ -7,3 +7,6 @@ venv/
 .env
 .env.*
 
+# Generated scan output, audit log and conversation state.
+runs/
+
