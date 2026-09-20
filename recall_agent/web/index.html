@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dental Follow-Up Agent</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="dot"></span>
+    <h1>Bright Smile Dental — Follow-Up Agent</h1>
+  </div>
+  <div class="topbar-meta">
+    <span class="pill" id="clinic-now">&nbsp;</span>
+    <span class="pill" id="mode-pill">&nbsp;</span>
+    <span class="fiction">Fictional data only</span>
+    <button id="kill-switch" class="ghost" type="button">Kill switch</button>
+    <button id="reset" class="ghost" type="button">Reset demo</button>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- Left: clinic dashboard ------------------------------------------- -->
+  <section class="dashboard">
+    <div class="stats" id="stats"></div>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="worklist">Worklist</button>
+      <button class="tab" data-tab="approvals">Needs approval <span class="badge" id="badge-approvals">0</span></button>
+      <button class="tab" data-tab="escalations">Escalations <span class="badge" id="badge-escalations">0</span></button>
+      <button class="tab" data-tab="refusals">Not contacting</button>
+      <button class="tab" data-tab="audit">Audit</button>
+    </nav>
+
+    <div class="panel active" id="panel-worklist">
+      <p class="hint">Ranked across every eligible follow-up requirement. Highest priority first.</p>
+      <div id="worklist"></div>
+    </div>
+
+    <div class="panel" id="panel-approvals">
+      <p class="hint">The agent drafted these but will not send them without a human.</p>
+      <div id="approvals"></div>
+    </div>
+
+    <div class="panel" id="panel-escalations">
+      <p class="hint">Handed to a human because the agent would not decide alone.</p>
+      <div id="escalations"></div>
+    </div>
+
+    <div class="panel" id="panel-refusals">
+      <p class="hint">Patients the agent refuses to contact, and why. The refusals matter as much as the sends.</p>
+      <div id="refusal-summary"></div>
+      <div id="refusals"></div>
+    </div>
+
+    <div class="panel" id="panel-audit">
+      <p class="hint">Every decision is logged. Message bodies are stored as a hash and a length, never as text.</p>
+      <div id="audit"></div>
+    </div>
+  </section>
+
+  <!-- Right: mock WhatsApp --------------------------------------------- -->
+  <section class="phone">
+    <div class="phone-frame">
+      <div class="chat-header">
+        <div class="avatar" id="chat-avatar">–</div>
+        <div>
+          <div class="chat-name" id="chat-name">No conversation selected</div>
+          <div class="chat-sub" id="chat-sub">Pick a patient from the worklist</div>
+        </div>
+      </div>
+      <div class="chat-body" id="chat-body">
+        <p class="chat-empty">Select a patient on the left to see their conversation.</p>
+      </div>
+      <div class="agent-readout" id="agent-readout"></div>
+      <form class="composer" id="composer" autocomplete="off">
+        <input id="reply-input" type="text" placeholder="Type as the patient…" disabled>
+        <button type="submit" id="reply-send" disabled>Send</button>
+      </form>
+      <p class="composer-note">You are typing as the <strong>patient</strong>. This replaces a live WhatsApp integration.</p>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
