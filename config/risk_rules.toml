@@ -83,19 +83,12 @@ citation = "contact_log outcome = opted_out"
 [rule.when]
 opted_out_in_log = true
 
-[[rule]]
-id = "no_messaging_consent"
-outcome = "EXCLUDE"
-reason = "Patient has not consented to WhatsApp messaging."
-citation = "dental_dataset whatsapp_consent = 0"
-
-[rule.when]
-whatsapp_consent = false
-
-
 # ---------------------------------------------------------------------------
-# 3. Record quality — we do not message on the strength of a bad record
+# 3. Record quality — a bad record makes everything else about it unreliable
 # ---------------------------------------------------------------------------
+# Duplicates are checked before consent and contactability on purpose: if the
+# record is a duplicate, its consent flags and phone number were copied from
+# another record, so the actionable finding is "merge this", not "no consent".
 
 [[rule]]
 id = "duplicate_patient_record"
@@ -107,14 +100,16 @@ citation = "blueprint invariant 12 — duplicate suppression; reason code SOURCE
 is_flagged_duplicate = true
 
 [[rule]]
-id = "no_reachable_whatsapp_number"
+id = "no_messaging_consent"
 outcome = "EXCLUDE"
-reason = "No usable Singapore mobile number on file, so this patient cannot be reached on WhatsApp."
-citation = "phone is blank, malformed, or holds two numbers in one field"
+reason = "Patient has not consented to WhatsApp messaging."
+citation = "dental_dataset whatsapp_consent = 0"
 
 [rule.when]
-has_valid_phone = false
+whatsapp_consent = false
 
+# Checked before contactability so that someone who has moved abroad is told
+# apart from someone whose phone number is simply missing.
 [[rule]]
 id = "patient_relocated_overseas"
 outcome = "EXCLUDE"
@@ -123,6 +118,15 @@ citation = "dental_dataset patient_status = overseas"
 
 [rule.when]
 patient_status = "overseas"
+
+[[rule]]
+id = "no_reachable_whatsapp_number"
+outcome = "EXCLUDE"
+reason = "No usable Singapore mobile number on file, so this patient cannot be reached on WhatsApp."
+citation = "phone is blank, malformed, or holds two numbers in one field"
+
+[rule.when]
+has_valid_phone = false
 
 
 # ---------------------------------------------------------------------------

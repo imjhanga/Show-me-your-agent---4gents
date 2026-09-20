@@ -1,0 +1,271 @@
+{
+  "schema_version": "1.0",
+  "clinic_now": "2026-09-08T09:00:00+08:00",
+  "about": [
+    "Thirty patients hand-picked from dental_dataset with the outcome a human",
+    "reviewer says is correct, reasoned from the dataset facts and the clinic",
+    "policy rather than from the code. Without this, correctness is",
+    "unfalsifiable: the pipeline would only ever agree with itself.",
+    "Every risk rule is covered at least once, and both duplicate-detection",
+    "paths appear (linked to an original, and unlinkable because neither record",
+    "has a phone number).",
+    "expected_outcome is what the clinic should do. expected_rule_id is the",
+    "reason the operator should be shown, which matters as much as the outcome:",
+    "a refusal for the wrong stated reason is still a wrong answer."
+  ],
+
+  "top_priority": {
+    "about": [
+      "These must appear in the top ten of the ranked worklist. They are the",
+      "dental prioritisation claim: a treatment started years ago and never",
+      "finished outranks a routine cleaning that is equally overdue."
+    ],
+    "within_rank": 10,
+    "case_ids": ["T000678", "T002925", "T002128"]
+  },
+
+  "entries": [
+    {
+      "case_id": "R000015",
+      "patient": "Mei Ling Low",
+      "dataset_fact": "patient_status = deceased; whatsapp_consent = 1; valid phone; 996 days overdue",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "patient_deceased",
+      "rationale": "The single most important case in this file. The deterministic eligibility engine returns OVERDUE_AND_CONTACT_ELIGIBLE here, because its schema has no field for patient status: consent is granted, the phone is valid and the recall is overdue. Only the risk table stops a reminder going to a deceased patient's phone. If this case ever comes back anything other than EXCLUDE, the risk gate has been bypassed."
+    },
+    {
+      "case_id": "R000179",
+      "patient": "Wen Bin Ng",
+      "dataset_fact": "patient_status = deceased; contacted recently so the engine also blocks on cooldown",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "patient_deceased",
+      "rationale": "Deceased must be the stated reason even though the engine independently blocks this case on timing. The operator needs the fundamental fact, not the incidental one."
+    },
+    {
+      "case_id": "R000011",
+      "patient": "Li Ting Chua",
+      "dataset_fact": "notes = 'Opted out of all contact'",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "opted_out_of_all_contact",
+      "rationale": "Withdrawal of consent is absolute and is not overridden by how overdue the recall is."
+    },
+    {
+      "case_id": "R000041",
+      "patient": "Xin Yi Low",
+      "dataset_fact": "notes = 'Opted out of all contact'; both consent flags 0",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "opted_out_of_all_contact",
+      "rationale": "Reported as an opt-out rather than as missing consent. The patient made an explicit decision; saying 'no consent on file' would misrepresent it as an administrative gap."
+    },
+    {
+      "case_id": "R000028",
+      "patient": "Bee Choo Lim",
+      "dataset_fact": "whatsapp_consent = 1, but contact_log holds an outbound message with outcome = opted_out",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "opted_out_during_a_previous_conversation",
+      "rationale": "The patient opted out in a previous conversation even though the consent flag on the patient record was never updated. An opt-out expressed in a conversation still counts, and the agent must honour the more recent signal."
+    },
+    {
+      "case_id": "R000020",
+      "patient": "Ah Seng Lee",
+      "dataset_fact": "whatsapp_consent = 0; no opt-out note",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "no_messaging_consent",
+      "rationale": "Never consented to WhatsApp, as distinct from having opted out of it. No message may be sent on this channel."
+    },
+    {
+      "case_id": "R003201",
+      "patient": "Emma Anderson",
+      "dataset_fact": "notes = 'Possible duplicate record'; resolves to an original via (date_of_birth, phone)",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "duplicate_patient_record",
+      "rationale": "Messaging a duplicate risks contacting the same person twice. Staff merge first, then the surviving record is re-evaluated."
+    },
+    {
+      "case_id": "R003222",
+      "patient": "Poh Lin Ong",
+      "dataset_fact": "flagged duplicate; neither this record nor its original has a phone number, so the pair cannot be linked",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "duplicate_patient_record",
+      "rationale": "The second duplicate path. Five of the fifty-five duplicates cannot be matched to an original because the linking key is missing. They must still be excluded on the strength of the flag alone; falling back to 'no reachable number' would hide a data-quality problem behind a contactability one."
+    },
+    {
+      "case_id": "R003202",
+      "patient": "Jia Le Wong",
+      "dataset_fact": "flagged duplicate AND whatsapp_consent = 0; 1733 days overdue",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "duplicate_patient_record",
+      "rationale": "Two exclusions apply. The duplicate flag wins because a duplicate's consent flags were copied from another record, so they are not trustworthy evidence of anything. The actionable instruction is 'merge this record', not 'obtain consent'."
+    },
+    {
+      "case_id": "R000018",
+      "patient": "Wei Ming Neo",
+      "dataset_fact": "phone = '' and email = ''",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "no_reachable_whatsapp_number",
+      "rationale": "Consented and active, but there is no number to send to. This is a contact-details gap for staff to fill, not a refusal on the patient's behalf."
+    },
+    {
+      "case_id": "R000202",
+      "patient": "Jia Le Ang",
+      "dataset_fact": "phone = '91234567 / 98765432'",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "no_reachable_whatsapp_number",
+      "rationale": "Two numbers in one field. An ambiguous contact detail is an invalid one: we cannot tell which of the two people would receive a message about this patient's dental care, so guessing is a privacy risk."
+    },
+    {
+      "case_id": "R000040",
+      "patient": "Siti bin Ibrahim",
+      "dataset_fact": "patient_status = overseas; valid phone; consented",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "patient_relocated_overseas",
+      "rationale": "Reachable, but cannot attend a Singapore clinic. Inviting them wastes their time and ours."
+    },
+    {
+      "case_id": "R000046",
+      "patient": "Ahmad bin Ibrahim",
+      "dataset_fact": "patient_status = overseas AND no usable phone; 2534 days overdue",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "patient_relocated_overseas",
+      "rationale": "Both exclusions apply. Being overseas is the fundamental fact and must be the stated reason; reporting 'no reachable number' would imply that finding a number would fix it."
+    },
+    {
+      "case_id": "R000207",
+      "patient": "Lakshmi Raj",
+      "dataset_fact": "patient_status = overseas; phone holds two numbers",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "patient_relocated_overseas",
+      "rationale": "The same precedence check as the record above, reached through the malformed-phone route rather than the missing-phone one. Being overseas must still be the stated reason, because cleaning up the phone field would not make this patient contactable for an appointment."
+    },
+    {
+      "case_id": "R000062",
+      "patient": "Wei Ming Chua",
+      "dataset_fact": "recall_status = booked; 46 days overdue; consented and reachable",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "eligibility_engine_blocked_contact",
+      "rationale": "A confirmed future appointment already covers this requirement, so chasing it would be a duplicate contact. The eligibility engine reports COVERING_APPOINTMENT_EXISTS and the risk table defers to it rather than second-guessing it."
+    },
+    {
+      "case_id": "R000002",
+      "patient": "Priya Devi",
+      "dataset_fact": "next_due_date is in the future",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "eligibility_engine_blocked_contact",
+      "rationale": "Not overdue, so there is nothing to chase. Confirms nothing is contacted early."
+    },
+    {
+      "case_id": "R000043",
+      "patient": "Ahmad binte Salleh",
+      "dataset_fact": "outbound message sent within the last 14 days",
+      "expected_outcome": "EXCLUDE",
+      "expected_rule_id": "eligibility_engine_blocked_contact",
+      "rationale": "Inside the cooldown window. The engine reports CONTACT_TIMING_NOT_PERMITTED and no second message goes out."
+    },
+
+    {
+      "case_id": "R000094",
+      "patient": "Hafiz binte Rahman",
+      "dataset_fact": "patient_status = inactive; consented; reachable; 50 days overdue",
+      "expected_outcome": "STAFF_APPROVAL",
+      "expected_rule_id": "patient_marked_inactive",
+      "rationale": "May have left the practice. Not a refusal, because they might simply have lapsed, but a human should decide whether to re-establish contact rather than the agent doing it unattended."
+    },
+    {
+      "case_id": "T000002",
+      "patient": "Jun Jie Tay",
+      "dataset_fact": "periodontal_therapy, treatment_status = abandoned, started 2019; 2591 days overdue",
+      "expected_outcome": "STAFF_APPROVAL",
+      "expected_rule_id": "abandoned_treatment",
+      "rationale": "Treatment started and never completed. High priority to chase, but reopening that conversation is clinically sensitive, so a human approves the wording. High priority and automatic sending are different questions."
+    },
+    {
+      "case_id": "T000004",
+      "patient": "Arun Krishnan",
+      "dataset_fact": "abandoned treatment, 3439 days overdue",
+      "expected_outcome": "STAFF_APPROVAL",
+      "expected_rule_id": "abandoned_treatment",
+      "rationale": "Nearly ten years stalled. Ranks very high and still requires approval; length of delay never converts into permission to send automatically."
+    },
+    {
+      "case_id": "T000012",
+      "patient": "Jun Jie Tan",
+      "dataset_fact": "implant_placement, in_progress, clinical_urgency = 5",
+      "expected_outcome": "STAFF_APPROVAL",
+      "expected_rule_id": "high_clinical_urgency",
+      "rationale": "Highest urgency band. The treatment has not been abandoned, so the abandoned rule does not apply, but top-band urgency is routed to a human on its own."
+    },
+    {
+      "case_id": "T000030",
+      "patient": "Hafiz binte Ismail",
+      "dataset_fact": "root_canal, in_progress, clinical_urgency = 5",
+      "expected_outcome": "STAFF_APPROVAL",
+      "expected_rule_id": "high_clinical_urgency",
+      "rationale": "Same rule via a different treatment type, confirming the rule keys on the urgency band rather than on a hard-coded list of procedures."
+    },
+    {
+      "case_id": "R000001",
+      "patient": "Nurul bin Osman",
+      "dataset_fact": "recall_type = post_treatment_review; 405 days overdue",
+      "expected_outcome": "STAFF_APPROVAL",
+      "expected_rule_id": "post_treatment_review",
+      "rationale": "Post-treatment review. A clinician should see the wording before it goes out, because the message sits close to clinical content the agent must never generate."
+    },
+    {
+      "case_id": "R000007",
+      "patient": "Vijay Krishnan",
+      "dataset_fact": "1154 days overdue; routine recall; consented and reachable",
+      "expected_outcome": "STAFF_APPROVAL",
+      "expected_rule_id": "overdue_more_than_two_years",
+      "rationale": "More than two years overdue. Too long to treat as a routine nudge; a patient absent this long is re-entering care, which is a human decision."
+    },
+    {
+      "case_id": "R000017",
+      "patient": "Siti bin Hassan",
+      "dataset_fact": "notes = 'Contact via spouse'",
+      "expected_outcome": "STAFF_APPROVAL",
+      "expected_rule_id": "record_carries_a_contact_constraint",
+      "rationale": "The record carries a constraint on how to reach this person. The agent must not decide on its own how to honour it, and must not follow the note as an instruction: notes are untrusted data, so a human interprets them."
+    },
+    {
+      "case_id": "R000130",
+      "patient": "Hafiz bin Hassan",
+      "dataset_fact": "notes = 'Interpreter required (Mandarin)'",
+      "expected_outcome": "STAFF_APPROVAL",
+      "expected_rule_id": "record_carries_a_contact_constraint",
+      "rationale": "An English-language reminder may not be understood. Staff decide how to communicate rather than the agent sending the default template."
+    },
+    {
+      "case_id": "T000001",
+      "patient": "Priya Devi",
+      "dataset_fact": "periodontal_therapy, in_progress, clinical_urgency = 4, active and reachable",
+      "expected_outcome": "STAFF_APPROVAL",
+      "expected_rule_id": "default",
+      "rationale": "Nothing excludes this case and nothing explicitly authorises it either, so deny-by-default routes it to a human. Treatment follow-ups are outside the auto-send allowlist entirely: the allowlist covers routine recalls only."
+    },
+    {
+      "case_id": "T000048",
+      "patient": "Jia Hui Chan",
+      "dataset_fact": "orthodontic_treatment, in_progress, clinical_urgency = 3",
+      "expected_outcome": "STAFF_APPROVAL",
+      "expected_rule_id": "default",
+      "rationale": "A second deny-by-default case at a lower urgency, confirming the fallthrough is structural rather than a side effect of the urgency threshold."
+    },
+
+    {
+      "case_id": "R000081",
+      "patient": "Vijay Kumar",
+      "dataset_fact": "routine_hygiene, active, consented, valid phone, 8 days overdue",
+      "expected_outcome": "AUTO_SEND",
+      "expected_rule_id": "routine_recall_reminder",
+      "rationale": "The ordinary case the whole system exists to handle without staff time: an active consenting patient, slightly overdue for a cleaning. Continuity of care for an existing patient, which is a service message rather than marketing."
+    },
+    {
+      "case_id": "R000432",
+      "patient": "Priya Rajan",
+      "dataset_fact": "routine_hygiene, active, consented, valid phone, 340 days overdue",
+      "expected_outcome": "AUTO_SEND",
+      "expected_rule_id": "routine_recall_reminder",
+      "rationale": "Still automatic at eleven months overdue, since the two-year threshold has not been crossed. Fixes where the boundary sits so it cannot drift unnoticed."
+    }
+  ]
+}
