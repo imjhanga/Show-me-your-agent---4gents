@@ -340,7 +340,11 @@ def understand_reply(
             response = client.complete(
                 SYSTEM_PROMPT,
                 f"<patient_reply>\n{text}\n</patient_reply>",
-                200,
+                # Normalised so a cached classification still replays when the
+                # operator types the rehearsed reply with different casing or
+                # punctuation. Drafting keys stay exact — a draft belongs to one
+                # patient and must never be reused for another.
+                normalise_key=True,
             )
             parsed = extract_json(response.text)
             candidate = str(parsed.get("intent", "")).upper()

@@ -218,7 +218,7 @@ def draft_message(
     if use_llm:
         client = client or LLMClient(mode=AUTO)
         try:
-            response = client.complete(SYSTEM_PROMPT, _build_prompt(context), 400)
+            response = client.complete(SYSTEM_PROMPT, _build_prompt(context))
             candidate = response.text.strip().strip('"')
             check = check_draft(candidate, check_context)
             if check.passed:

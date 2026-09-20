@@ -3,7 +3,28 @@
 Fictional data only. Nothing here touches a real patient, a real clinic or a
 real messaging provider.
 
-## Before you start
+## Once, before the day: fill the cache
+
+`--offline` replays model responses from disk and never opens a socket, which is
+what makes the demo independent of venue wifi. A cache miss falls back to an
+approved template **silently** — the demo keeps working and quietly stops using
+the model. So warm the cache first, from a machine with internet:
+
+```bash
+python -m recall_agent.prewarm --top 25
+```
+
+This needs `ANTHROPIC_API_KEY` set in the same shell and makes real API calls
+(a few cents). It caches drafts for the top 25 of the worklist plus every reply
+in the script below, and prints a warning for anything that fell back instead of
+reaching the model. Commit `fixtures/demo/llm_cache/` afterwards so the demo
+works from any clone.
+
+Reply cache keys ignore casing, punctuation and apostrophes, so "im in australia
+till march" still replays the rehearsed answer. Draft keys are exact — a draft
+belongs to one patient and is never reused for another.
+
+## On the day
 
 ```bash
 python -m recall_agent.server --offline
@@ -13,9 +34,12 @@ Open <http://127.0.0.1:8000/>. Wait for the scan line to print in the terminal
 (about two seconds). Press **Reset demo** in the top right so the run starts
 clean — it runs identically every time.
 
-`--offline` replays cached model responses from disk and never opens a socket,
-so venue wifi cannot break the demo. Add `--no-llm` to fall back to approved
-templates and the rule-based classifier only; the flow below works either way.
+Check the top-right pill reads **Offline — cached model replies**, and when you
+draft, that the panel says `llm_cache` rather than `template:`. If it says
+`template:`, the cache is cold and you are demoing the fallback, not the agent.
+
+`--no-llm` is the deliberate belt-and-braces mode: approved templates and the
+rule-based classifier only, no cache needed. The flow below works either way.
 
 **Screen setup:** one browser window, maximised, at least 1100px wide so the
 dashboard and the chat panel sit side by side.
@@ -155,6 +179,7 @@ Turn it back off.
 | If | Do |
 |---|---|
 | The model is slow or erroring | Restart with `--no-llm`. Templates and the rule-based classifier carry the whole flow. |
+| The draft panel says `template:` not `llm_cache` | The cache is cold for that patient. Pick one from the top of the worklist, which is what prewarm covers. |
 | A reply classifies oddly | Say so out loud: "it was not confident, so it escalated — that is the design." It is a feature, not a save. |
 | State gets messy | Press **Reset demo**. Takes two seconds. |
 | Port 8000 is taken | `--port 8001`. |

@@ -25,7 +25,13 @@ class StubClient(LLMClient):
         self.fail = fail
         self.calls: list[tuple[str, str]] = []
 
-    def complete(self, system: str, user: str, max_tokens: int = 512) -> LLMResponse:
+    def complete(
+        self,
+        system: str,
+        user: str,
+        max_tokens: int = 512,
+        normalise_key: bool = False,
+    ) -> LLMResponse:
         self.calls.append((system, user))
         if self.fail:
             raise LLMUnavailable("stub is offline")

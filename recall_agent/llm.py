@@ -14,17 +14,29 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5"
 DEFAULT_CACHE = Path("fixtures/demo/llm_cache")
+
+# Headroom, not a target. Both calls here produce a few hundred tokens at most,
+# but max_tokens caps everything the model generates. Setting it near the
+# expected output length risks the response being cut off before any text block
+# exists, which would look exactly like an API failure.
+DEFAULT_MAX_TOKENS = 4096
+
+# Drafting a reminder and labelling a reply are short, mechanical tasks that do
+# not benefit from reasoning. Disabling it also removes any chance of thinking
+# tokens consuming the output budget.
+THINKING = {"type": "disabled"}
 
 # Blueprint §7: technical retries per action.
 MAX_RETRIES = 2
@@ -46,12 +58,69 @@ class LLMResponse:
     model: str
 
 
-def _cache_key(model: str, system: str, user: str, max_tokens: int) -> str:
+def normalise_for_cache(text: str) -> str:
+    """Fold trivial phrasing differences together for cache lookup.
+
+    A demo operator types a patient's reply by hand, so "Until March.",
+    "  until march  " and "im" for "I'm" should all replay the same cached
+    classification rather than silently dropping to the rule-based fallback.
+    Apostrophes are dropped because they never carry meaning here; internal
+    wording is left alone, so genuinely different replies still miss.
+    Only used where the input is free text typed on the day.
+    """
+
+    # Apostrophes close up ("I'm" -> "im"); every other punctuation mark becomes
+    # a space. Punctuation is dropped wherever it sits, not just at the ends,
+    # because the reply is wrapped in tags before it reaches here, so a trailing
+    # full stop ends up in the middle of the string being hashed.
+    folded = text.lower().replace("'", "").replace("’", "")
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", folded).split())
+
+
+def _cache_key(
+    model: str, system: str, user: str, max_tokens: int, normalise: bool = False
+) -> str:
     payload = json.dumps(
-        {"model": model, "system": system, "user": user, "max_tokens": max_tokens},
+        {
+            "model": model,
+            "system": system,
+            "user": normalise_for_cache(user) if normalise else user,
+            "max_tokens": max_tokens,
+        },
         sort_keys=True,
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
+
+
+def _text_from(payload: Mapping[str, Any]) -> str:
+    """Extract the response text, or say precisely why there is none.
+
+    An empty string is not a usable answer, and every way of producing one looks
+    identical downstream: the draft check rejects it and the template takes
+    over. Naming the cause here is the difference between "the model was never
+    consulted" and "the model declined" in the audit log.
+    """
+
+    stop_reason = payload.get("stop_reason")
+    if stop_reason == "refusal":
+        details = payload.get("stop_details") or {}
+        raise LLMUnavailable(
+            f"model declined the request (category: {details.get('category')})"
+        )
+
+    text = "".join(
+        block.get("text", "")
+        for block in payload.get("content", [])
+        if block.get("type") == "text"
+    ).strip()
+
+    if not text:
+        if stop_reason == "max_tokens":
+            raise LLMUnavailable(
+                "response hit max_tokens before producing any text; raise max_tokens"
+            )
+        raise LLMUnavailable(f"response contained no text (stop_reason: {stop_reason})")
+    return text
 
 
 class LLMClient:
@@ -92,8 +161,14 @@ class LLMClient:
             encoding="utf-8",
         )
 
-    def complete(self, system: str, user: str, max_tokens: int = 512) -> LLMResponse:
-        key = _cache_key(self.model, system, user, max_tokens)
+    def complete(
+        self,
+        system: str,
+        user: str,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
+        normalise_key: bool = False,
+    ) -> LLMResponse:
+        key = _cache_key(self.model, system, user, max_tokens, normalise_key)
 
         if self.mode != LIVE:
             cached = self._read_cache(key)
@@ -115,6 +190,7 @@ class LLMClient:
             {
                 "model": self.model,
                 "max_tokens": max_tokens,
+                "thinking": THINKING,
                 "system": system,
                 "messages": [{"role": "user", "content": user}],
             }
@@ -135,11 +211,7 @@ class LLMClient:
             try:
                 with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as handle:
                     payload = json.loads(handle.read().decode("utf-8"))
-                return "".join(
-                    block.get("text", "")
-                    for block in payload.get("content", [])
-                    if block.get("type") == "text"
-                ).strip()
+                return _text_from(payload)
             except urllib.error.HTTPError as error:
                 # 4xx other than rate limiting will not improve on retry.
                 if error.code not in (408, 429, 500, 502, 503, 529):
