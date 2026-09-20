@@ -1,0 +1,231 @@
+# Risk rule table — who may be contacted automatically, who needs a human, and
+# who must not be contacted at all.
+#
+# This file is the safety story. It is read top to bottom, FIRST MATCH WINS, and
+# nothing is sent automatically unless a rule explicitly says AUTO_SEND. If no
+# rule matches, the case goes to a human (see default_outcome at the bottom).
+#
+# Outcomes
+#   EXCLUDE         Do not contact. The case leaves the worklist with a reason.
+#   STAFF_APPROVAL  The agent drafts, a human approves before anything is sent.
+#   AUTO_SEND       The agent may send without waiting for a human.
+#
+# Conditions inside [rule.when] are ANDed. A bare key tests equality; a key may
+# carry one of the suffixes __gt __gte __lt __lte __in __not_in __contains.
+# Unknown outcomes, operators or fact names are a load-time error: the table
+# fails closed rather than silently skipping a rule it does not understand.
+#
+# Fictional data only. These values are a prototype proposal, not approved
+# clinic policy (technical-blueprint.md §1, "Clinic decisions still required").
+
+schema_version = "1.0"
+
+# Nothing is authorised by omission.
+default_outcome = "STAFF_APPROVAL"
+default_reason = "No rule authorised automatic contact, so a human decides."
+
+
+# ---------------------------------------------------------------------------
+# 1. The care / marketing boundary
+# ---------------------------------------------------------------------------
+# Recall and appointment reminders are service messages to existing patients and
+# sit outside Do Not Call provisions. Anything promotional is regulated
+# marketing and needs separate consent. whatsapp_consent does NOT grant it.
+
+[[rule]]
+id = "marketing_without_marketing_consent"
+outcome = "EXCLUDE"
+reason = "Promotional content requires marketing consent, which this patient has not given."
+citation = "PDPA Do Not Call; marketing_consent is a separate field from whatsapp_consent"
+
+[rule.when]
+message_purpose = "marketing"
+marketing_consent = false
+
+[[rule]]
+id = "solicitation_is_never_permitted"
+outcome = "EXCLUDE"
+reason = "Soliciting patients is prohibited. This agent only continues care for existing patients."
+citation = "Singapore Dental Council Ethical Code — prohibition on soliciting patients"
+
+[rule.when]
+message_purpose = "solicitation"
+
+
+# ---------------------------------------------------------------------------
+# 2. Absolute exclusions — never contact, regardless of anything else
+# ---------------------------------------------------------------------------
+
+[[rule]]
+id = "patient_deceased"
+outcome = "EXCLUDE"
+reason = "Patient record is marked deceased. No contact is ever appropriate."
+citation = "dental_dataset patient_status = deceased"
+
+[rule.when]
+patient_status = "deceased"
+
+[[rule]]
+id = "opted_out_of_all_contact"
+outcome = "EXCLUDE"
+reason = "Patient has opted out of all contact. Withdrawal of consent is absolute."
+citation = "PDPA withdrawal of consent; blueprint safety invariant 9"
+
+[rule.when]
+opted_out = true
+
+[[rule]]
+id = "opted_out_during_a_previous_conversation"
+outcome = "EXCLUDE"
+reason = "Patient opted out during an earlier outreach. That decision still stands."
+citation = "contact_log outcome = opted_out"
+
+[rule.when]
+opted_out_in_log = true
+
+[[rule]]
+id = "no_messaging_consent"
+outcome = "EXCLUDE"
+reason = "Patient has not consented to WhatsApp messaging."
+citation = "dental_dataset whatsapp_consent = 0"
+
+[rule.when]
+whatsapp_consent = false
+
+
+# ---------------------------------------------------------------------------
+# 3. Record quality — we do not message on the strength of a bad record
+# ---------------------------------------------------------------------------
+
+[[rule]]
+id = "duplicate_patient_record"
+outcome = "EXCLUDE"
+reason = "Record is a flagged duplicate. Messaging it risks contacting the same person twice. Staff should merge it first."
+citation = "blueprint invariant 12 — duplicate suppression; reason code SOURCE_RECORD_STALE"
+
+[rule.when]
+is_flagged_duplicate = true
+
+[[rule]]
+id = "no_reachable_whatsapp_number"
+outcome = "EXCLUDE"
+reason = "No usable Singapore mobile number on file, so this patient cannot be reached on WhatsApp."
+citation = "phone is blank, malformed, or holds two numbers in one field"
+
+[rule.when]
+has_valid_phone = false
+
+[[rule]]
+id = "patient_relocated_overseas"
+outcome = "EXCLUDE"
+reason = "Patient is recorded as overseas and cannot attend the clinic. Contacting them would waste their time and ours."
+citation = "dental_dataset patient_status = overseas"
+
+[rule.when]
+patient_status = "overseas"
+
+
+# ---------------------------------------------------------------------------
+# 4. Defer to the deterministic eligibility engine
+# ---------------------------------------------------------------------------
+# Anything the engine blocked for a reason not already named above — covering
+# appointment, cooldown, sending window, attempt limit — stops here. The engine
+# authorises execution, never the LLM.
+
+[[rule]]
+id = "eligibility_engine_blocked_contact"
+outcome = "EXCLUDE"
+reason = "The deterministic eligibility engine did not permit contact for this requirement."
+citation = "followup_agent.eligibility; blueprint safety invariant 1"
+
+[rule.when]
+may_send_reminder = false
+
+
+# ---------------------------------------------------------------------------
+# 5. Cases a human must approve before anything is sent
+# ---------------------------------------------------------------------------
+
+[[rule]]
+id = "patient_marked_inactive"
+outcome = "STAFF_APPROVAL"
+reason = "Patient is marked inactive and may have left the practice. Staff confirm before re-establishing contact."
+citation = "dental_dataset patient_status = inactive"
+
+[rule.when]
+patient_status = "inactive"
+
+[[rule]]
+id = "abandoned_treatment"
+outcome = "STAFF_APPROVAL"
+reason = "Treatment was started and never completed. Restarting that conversation is clinically sensitive and needs a human."
+citation = "treatment_status = abandoned; blueprint §1 — no clinical judgements"
+
+[rule.when]
+treatment_status = "abandoned"
+
+[[rule]]
+id = "post_treatment_review"
+outcome = "STAFF_APPROVAL"
+reason = "Post-treatment review follow-up. A clinician should see the wording before it goes out."
+citation = "recall_type = post_treatment_review"
+
+[rule.when]
+recall_type = "post_treatment_review"
+
+[[rule]]
+id = "high_clinical_urgency"
+outcome = "STAFF_APPROVAL"
+reason = "Highest clinical urgency band. Escalated to staff rather than handled automatically."
+citation = "treatments.clinical_urgency = 5"
+
+[rule.when]
+clinical_urgency__gte = 5
+
+[[rule]]
+id = "overdue_more_than_two_years"
+outcome = "STAFF_APPROVAL"
+reason = "More than 24 months overdue. Too long to treat as a routine nudge; staff decide how to re-open care."
+citation = "prototype threshold, subject to clinic approval"
+
+[rule.when]
+days_overdue__gt = 730
+
+[[rule]]
+id = "record_carries_a_contact_constraint"
+outcome = "STAFF_APPROVAL"
+reason = "The patient record carries a contact constraint that the agent must not decide how to honour on its own."
+citation = "patients.notes; blueprint invariant 5 — notes are data, never instructions"
+
+[rule.when]
+notes__in = [
+    "Contact via spouse",
+    "Interpreter required (Mandarin)",
+    "Do not call during work hours",
+]
+
+
+# ---------------------------------------------------------------------------
+# 6. The only path to an automatic send
+# ---------------------------------------------------------------------------
+# Every condition here must hold. This is the whole allowlist.
+
+[[rule]]
+id = "routine_recall_reminder"
+outcome = "AUTO_SEND"
+reason = "Routine recall reminder to a consenting, reachable, active patient. Continuity of care for an existing patient."
+citation = "blueprint §9 — send_approved_reminder"
+
+[rule.when]
+message_purpose = "care_continuity"
+may_send_reminder = true
+requirement_kind = "RECALL"
+patient_status = "active"
+days_overdue__lte = 730
+recall_type__in = [
+    "routine_hygiene",
+    "perio_maintenance",
+    "ortho_adjustment",
+    "paediatric_checkup",
+    "implant_review",
+]
