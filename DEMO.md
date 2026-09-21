@@ -11,18 +11,21 @@ approved template **silently** — the demo keeps working and quietly stops usin
 the model. So warm the cache first, from a machine with internet:
 
 ```bash
-python -m recall_agent.prewarm --top 25
+python -m recall_agent.prewarm --top 50
 ```
 
 This needs `ANTHROPIC_API_KEY` set in the same shell and makes real API calls
-(a few cents). It caches drafts for the top 25 of the worklist plus every reply
+(a few cents). It caches drafts for the top 50 of the worklist plus every reply
 in the script below, and prints a warning for anything that fell back instead of
 reaching the model. Commit `fixtures/demo/llm_cache/` afterwards so the demo
 works from any clone.
 
-Reply cache keys ignore casing, punctuation and apostrophes, so "im in australia
-till march" still replays the rehearsed answer. Draft keys are exact — a draft
-belongs to one patient and is never reused for another.
+**Type the scripted replies as written.** Cache keys ignore casing, punctuation
+and apostrophes, so "im in australia until march." still replays the rehearsed
+answer — but they do not ignore vocabulary. Swapping "until" for "till" is a
+miss, and the reply drops to the rule-based classifier. That classifier gets the
+common cases right, so nothing breaks; you just stop demoing the model.
+Draft keys are exact — a draft belongs to one patient and is never reused.
 
 ## On the day
 
@@ -34,9 +37,15 @@ Open <http://127.0.0.1:8000/>. Wait for the scan line to print in the terminal
 (about two seconds). Press **Reset demo** in the top right so the run starts
 clean — it runs identically every time.
 
-Check the top-right pill reads **Offline — cached model replies**, and when you
-draft, that the panel says `llm_cache` rather than `template:`. If it says
-`template:`, the cache is cold and you are demoing the fallback, not the agent.
+Every draft now says underneath it where the wording came from:
+
+- *written just now by the model* (green) — a live call
+- *written by the model, replayed from cache* (blue) — a cache hit
+- *approved template — the model was not used* (amber) — the fallback
+
+Amber means the cache is cold for that patient and you are demoing the safety
+net rather than the agent. Replies say the same thing in the panel under the
+chat: `via llm`, `via llm_cache`, `via rules` or `via safety_rule`.
 
 `--no-llm` is the deliberate belt-and-braces mode: approved templates and the
 rule-based classifier only, no cache needed. The flow below works either way.
@@ -179,7 +188,7 @@ Turn it back off.
 | If | Do |
 |---|---|
 | The model is slow or erroring | Restart with `--no-llm`. Templates and the rule-based classifier carry the whole flow. |
-| The draft panel says `template:` not `llm_cache` | The cache is cold for that patient. Pick one from the top of the worklist, which is what prewarm covers. |
+| A draft is labelled amber (*the model was not used*) | The cache is cold for that patient. Pick one from the top 50 of the worklist, which is what prewarm covers. |
 | A reply classifies oddly | Say so out loud: "it was not confident, so it escalated — that is the design." It is a feature, not a save. |
 | State gets messy | Press **Reset demo**. Takes two seconds. |
 | Port 8000 is taken | `--port 8001`. |

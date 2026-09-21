@@ -83,6 +83,26 @@ function outcomeTag(outcome) {
   return '<span class="tag exclude">will not contact</span>';
 }
 
+function draftSource(draft) {
+  // Where the wording came from. Without this the operator cannot tell a
+  // model-written draft from the approved template fallback, which is the
+  // whole difference between demoing the agent and demoing the safety net.
+  const src = draft.source || "";
+  if (src === "llm") return ["live", "written just now by the model"];
+  if (src === "llm_cache") return ["cached", "written by the model, replayed from cache"];
+  if (src.startsWith("template")) {
+    const why = src.split(":")[1] || "";
+    return ["template", "approved template — the model was not used (" + why + ")"];
+  }
+  return ["template", src];
+}
+
+function draftBlock(draft) {
+  const [kind, label] = draftSource(draft);
+  return `<div class="draft-preview">${esc(draft.text)}</div>
+    <div class="draft-meta ${kind}">${esc(label)}</div>`;
+}
+
 function conversationActions(row) {
   const c = row.conversation;
   const id = esc(row.case_id);
@@ -90,13 +110,13 @@ function conversationActions(row) {
     return `<div class="actions"><button class="primary" data-act="prepare" data-id="${id}">Draft message</button></div>`;
   }
   if (c.state === "PENDING_APPROVAL") {
-    return `<div class="draft-preview">${esc(c.draft.text)}</div>
+    return `${draftBlock(c.draft)}
       <div class="actions">
         <button class="primary" data-act="approve" data-id="${id}">Approve &amp; send</button>
         <button class="danger" data-act="reject" data-id="${id}">Decline</button>
       </div>`;
   }
-  return `<div class="draft-preview">${esc(c.draft.text)}</div>`;
+  return draftBlock(c.draft);
 }
 
 function renderWorklist() {
@@ -138,7 +158,7 @@ function renderConversationList(target, items, emptyText) {
           <span class="spacer"></span><span class="tag state">${esc(c.state)}</span>
         </div>
         <div class="reason">${esc(c.escalation_reason || c.risk_reason)}</div>
-        ${c.draft ? `<div class="draft-preview">${esc(c.draft.text)}</div>` : ""}
+        ${c.draft ? draftBlock(c.draft) : ""}
         ${
           isApproval
             ? `<div class="actions">
