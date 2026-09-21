@@ -1,0 +1,4 @@
+{
+  "text": "{\"intent\": \"DEFER_WITH_DATE\", \"confidence\": 0.85, \"rationale\": \"Patient indicates unavailability until March, giving a specific timeframe for when they'd be available.\"}",
+  "model": "claude-sonnet-5"
+}

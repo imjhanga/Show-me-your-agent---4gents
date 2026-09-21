@@ -1,0 +1,4 @@
+{
+  "text": "{\"intent\": \"UNPARSEABLE\", \"confidence\": 0.98, \"rationale\": \"The message is gibberish with no discernible meaning.\"}",
+  "model": "claude-sonnet-5"
+}

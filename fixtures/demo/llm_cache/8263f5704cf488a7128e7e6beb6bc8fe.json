@@ -1,0 +1,4 @@
+{
+  "text": "{\"intent\": \"OPT_OUT\", \"confidence\": 0.98, \"rationale\": \"Patient explicitly asked to stop contact.\"}",
+  "model": "claude-sonnet-5"
+}

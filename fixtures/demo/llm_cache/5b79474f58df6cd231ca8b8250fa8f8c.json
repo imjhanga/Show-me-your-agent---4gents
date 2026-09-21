@@ -1,0 +1,4 @@
+{
+  "text": "{\"intent\": \"DEFER_INDEFINITE\", \"confidence\": 0.85, \"rationale\": \"Patient declines for now without specifying any future time.\"}",
+  "model": "claude-sonnet-5"
+}

@@ -1,0 +1,4 @@
+{
+  "text": "{\"intent\": \"QUESTION\", \"confidence\": 0.85, \"rationale\": \"Patient is asking why the appointment/recall is necessary given a recent visit.\"}",
+  "model": "claude-sonnet-5"
+}

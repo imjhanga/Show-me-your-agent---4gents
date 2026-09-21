@@ -1,0 +1,4 @@
+{
+  "text": "{\"intent\": \"RESCHEDULE_REQUEST\", \"confidence\": 0.9, \"rationale\": \"Patient asks to move the appointment to next week.\"}",
+  "model": "claude-sonnet-5"
+}

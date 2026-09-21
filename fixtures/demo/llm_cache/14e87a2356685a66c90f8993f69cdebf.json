@@ -1,0 +1,4 @@
+{
+  "text": "{\"intent\": \"COMPLAINT\", \"confidence\": 0.85, \"rationale\": \"Patient expresses frustration about repeated messages.\"}",
+  "model": "claude-sonnet-5"
+}

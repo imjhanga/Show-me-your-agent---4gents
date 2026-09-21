@@ -1,0 +1,4 @@
+{
+  "text": "{\"intent\": \"BOOKING_INTEREST\", \"confidence\": 0.98, \"rationale\": \"Patient explicitly asks to be booked in for an appointment.\"}",
+  "model": "claude-sonnet-5"
+}
